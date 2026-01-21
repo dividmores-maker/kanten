@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>إدارة السوبر ماركت</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 2.5em;
+            margin: 0;
+        }
+        
+        .stats {
+            padding: 30px;
+            background: #f8f9fa;
+        }
+        
+        .stat-card {
+            background: white;
+            padding: 25px;
+            border-radius: 15px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        
+        .stat-card h3 {
+            font-size: 1.1em;
+            color: #666;
+            margin-bottom: 10px;
+        }
+        
+        .stat-card .value {
+            font-size: 2.5em;
+            font-weight: bold;
+        }
+        
+        .stat-card.purchases .value { color: #dc3545; }
+        .stat-card.sales .value { color: #28a745; }
+        .stat-card.remaining .value { color: #007bff; }
+        
+        .content {
+            padding: 30px;
+        }
+        
+        .form-section {
+            background: #f8f9fa;
+            padding: 25px;
+            border-radius: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .form-section h2 {
+            margin-bottom: 20px;
+            color: #333;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #333;
+        }
+        
+        .form-group input {
+            width: 100%;
+            padding: 15px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 1.2em;
+            text-align: center;
+        }
+        
+        .form-group input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .btn {
+            padding: 15px 30px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1.1em;
+            font-weight: bold;
+            cursor: pointer;
+            width: 100%;
+            transition: all 0.3s;
+        }
+        
+        .btn-danger {
+            background: #dc3545;
+            color: white;
+        }
+        
+        .btn-danger:hover {
+            background: #c82333;
+        }
+        
+        .btn-success {
+            background: #28a745;
+            color: white;
+        }
+        
+        .btn-success:hover {
+            background: #218838;
+        }
+        
+        .transactions {
+            margin-top: 30px;
+        }
+        
+        .transactions h3 {
+            margin-bottom: 15px;
+            color: #333;
+        }
+        
+        .transaction-item {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .transaction-type {
+            font-weight: bold;
+        }
+        
+        .transaction-type.purchase {
+            color: #dc3545;
+        }
+        
+        .transaction-type.sale {
+            color: #28a745;
+        }
+        
+        .transaction-amount {
+            font-size: 1.2em;
+            font-weight: bold;
+        }
+        
+        .transaction-date {
+            font-size: 0.85em;
+            color: #666;
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: #999;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🛒 إدارة السوبر ماركت</h1>
+        </div>
+        
+        <div class="stats">
+            <div class="stat-card purchases">
+                <h3>📦 إجمالي المشتريات</h3>
+                <div class="value" id="totalPurchases">0.00 جنيه</div>
+            </div>
+            <div class="stat-card sales">
+                <h3>💰 إجمالي المبيعات</h3>
+                <div class="value" id="totalSales">0.00 جنيه</div>
+            </div>
+            <div class="stat-card remaining">
+                <h3>📊 الباقي</h3>
+                <div class="value" id="remaining">0.00 جنيه</div>
+            </div>
+        </div>
+        
+        <div class="content">
+            <div class="form-section">
+                <h2>📦 جبت بضاعة</h2>
+                <form onsubmit="addPurchase(event)">
+                    <div class="form-group">
+                        <label>المبلغ</label>
+                        <input type="number" id="purchaseAmount" step="0.01" placeholder="0.00" required>
+                    </div>
+                    <button type="submit" class="btn btn-danger">➕ تسجيل الشراء</button>
+                </form>
+            </div>
+            
+            <div class="form-section">
+                <h2>💰 بعت بضاعة</h2>
+                <form onsubmit="addSale(event)">
+                    <div class="form-group">
+                        <label>المبلغ</label>
+                        <input type="number" id="saleAmount" step="0.01" placeholder="0.00" required>
+                    </div>
+                    <button type="submit" class="btn btn-success">✅ تسجيل البيع</button>
+                </form>
+            </div>
+            
+            <div class="transactions">
+                <h3>📋 آخر العمليات</h3>
+                <div id="transactionsList"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let transactions = [];
+        
+        // Load data
+        function loadData() {
+            const saved = localStorage.getItem('transactions');
+            if (saved) {
+                transactions = JSON.parse(saved);
+            }
+        }
+        
+        // Save data
+        function saveData() {
+            localStorage.setItem('transactions', JSON.stringify(transactions));
+        }
+        
+        // Add purchase
+        function addPurchase(e) {
+            e.preventDefault();
+            
+            const amount = parseFloat(document.getElementById('purchaseAmount').value);
+            
+            transactions.push({
+                id: Date.now(),
+                type: 'purchase',
+                amount: amount,
+                date: new Date().toISOString()
+            });
+            
+            saveData();
+            updateDisplay();
+            
+            e.target.reset();
+            alert('تم تسجيل الشراء بنجاح! ✅');
+        }
+        
+        // Add sale
+        function addSale(e) {
+            e.preventDefault();
+            
+            const amount = parseFloat(document.getElementById('saleAmount').value);
+            
+            transactions.push({
+                id: Date.now(),
+                type: 'sale',
+                amount: amount,
+                date: new Date().toISOString()
+            });
+            
+            saveData();
+            updateDisplay();
+            
+            e.target.reset();
+            alert('تم تسجيل البيع بنجاح! ✅');
+        }
+        
+        // Update display
+        function updateDisplay() {
+            const totalPurchases = transactions
+                .filter(t => t.type === 'purchase')
+                .reduce((sum, t) => sum + t.amount, 0);
+            
+            const totalSales = transactions
+                .filter(t => t.type === 'sale')
+                .reduce((sum, t) => sum + t.amount, 0);
+            
+            const remaining = totalPurchases - totalSales;
+            
+            document.getElementById('totalPurchases').textContent = totalPurchases.toFixed(2) + ' جنيه';
+            document.getElementById('totalSales').textContent = totalSales.toFixed(2) + ' جنيه';
+            document.getElementById('remaining').textContent = remaining.toFixed(2) + ' جنيه';
+            
+            displayTransactions();
+        }
+        
+        // Display transactions
+        function displayTransactions() {
+            const list = document.getElementById('transactionsList');
+            
+            if (transactions.length === 0) {
+                list.innerHTML = '<div class="empty-state">لا توجد عمليات مسجلة</div>';
+                return;
+            }
+            
+            list.innerHTML = transactions
+                .slice(-10)
+                .reverse()
+                .map(t => {
+                    const date = new Date(t.date);
+                    const dateStr = date.toLocaleDateString('ar-EG') + ' ' + date.toLocaleTimeString('ar-EG', {hour: '2-digit', minute: '2-digit'});
+                    const typeText = t.type === 'purchase' ? '📦 شراء' : '💰 بيع';
+                    const typeClass = t.type === 'purchase' ? 'purchase' : 'sale';
+                    const sign = t.type === 'purchase' ? '-' : '+';
+                    
+                    return `
+                        <div class="transaction-item">
+                            <div>
+                                <div class="transaction-type ${typeClass}">${typeText}</div>
+                                <div class="transaction-date">${dateStr}</div>
+                            </div>
+                            <div class="transaction-amount ${typeClass}">${sign}${t.amount.toFixed(2)} جنيه</div>
+                        </div>
+                    `;
+                }).join('');
+        }
+        
+        // Initialize
+        loadData();
+        updateDisplay();
+    </script>
+</body>
+</html>
