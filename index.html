@@ -32,11 +32,38 @@
             color: white;
             padding: 30px;
             text-align: center;
+            position: relative;
         }
         
         .header h1 {
             font-size: 2.5em;
             margin: 0;
+        }
+        
+        .sync-status {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: rgba(255,255,255,0.2);
+            padding: 8px 15px;
+            border-radius: 20px;
+            font-size: 0.9em;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .sync-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #4CAF50;
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
         }
         
         .stats {
@@ -120,12 +147,17 @@
             transition: all 0.3s;
         }
         
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+        
         .btn-danger {
             background: #dc3545;
             color: white;
         }
         
-        .btn-danger:hover {
+        .btn-danger:hover:not(:disabled) {
             background: #c82333;
         }
         
@@ -134,8 +166,33 @@
             color: white;
         }
         
-        .btn-success:hover {
+        .btn-success:hover:not(:disabled) {
             background: #218838;
+        }
+        
+        .btn-small {
+            padding: 8px 15px;
+            font-size: 0.9em;
+            width: auto;
+            margin-left: 5px;
+        }
+        
+        .btn-edit {
+            background: #ffc107;
+            color: #333;
+        }
+        
+        .btn-edit:hover:not(:disabled) {
+            background: #e0a800;
+        }
+        
+        .btn-delete {
+            background: #dc3545;
+            color: white;
+        }
+        
+        .btn-delete:hover:not(:disabled) {
+            background: #c82333;
         }
         
         .transactions {
@@ -155,6 +212,27 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
+            animation: slideIn 0.3s ease;
+        }
+        
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateX(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+        
+        .transaction-info {
+            flex: 1;
+        }
+        
+        .transaction-actions {
+            display: flex;
+            gap: 5px;
         }
         
         .transaction-type {
@@ -184,11 +262,70 @@
             padding: 40px 20px;
             color: #999;
         }
+        
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .modal.active {
+            display: flex;
+        }
+        
+        .modal-content {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            max-width: 500px;
+            width: 90%;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+        }
+        
+        .modal-header {
+            margin-bottom: 20px;
+        }
+        
+        .modal-header h2 {
+            color: #333;
+        }
+        
+        .modal-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+        
+        .btn-cancel {
+            background: #6c757d;
+            color: white;
+        }
+        
+        .btn-cancel:hover {
+            background: #5a6268;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: #666;
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
+            <div class="sync-status">
+                <div class="sync-dot"></div>
+                <span>متصل - مزامن</span>
+            </div>
             <h1>🛒 إدارة السوبر ماركت</h1>
         </div>
         
@@ -215,7 +352,7 @@
                         <label>المبلغ</label>
                         <input type="number" id="purchaseAmount" step="0.01" placeholder="0.00" required>
                     </div>
-                    <button type="submit" class="btn btn-danger">➕ تسجيل الشراء</button>
+                    <button type="submit" class="btn btn-danger" id="purchaseBtn">➕ تسجيل الشراء</button>
                 </form>
             </div>
             
@@ -226,73 +363,183 @@
                         <label>المبلغ</label>
                         <input type="number" id="saleAmount" step="0.01" placeholder="0.00" required>
                     </div>
-                    <button type="submit" class="btn btn-success">✅ تسجيل البيع</button>
+                    <button type="submit" class="btn btn-success" id="saleBtn">✅ تسجيل البيع</button>
                 </form>
             </div>
             
             <div class="transactions">
-                <h3>📋 آخر العمليات</h3>
-                <div id="transactionsList"></div>
+                <h3>📋 آخر العمليات)</h3>
+                <div id="transactionsList">
+                    <div class="loading">⏳ جاري التحميل...</div>
+                </div>
             </div>
         </div>
     </div>
 
-    <script>
+    <div class="modal" id="editModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>✏️ تعديل العملية</h2>
+            </div>
+            <form onsubmit="saveEdit(event)">
+                <div class="form-group">
+                    <label>نوع العملية</label>
+                    <input type="text" id="editType" readonly style="background: #e9ecef;">
+                </div>
+                <div class="form-group">
+                    <label>المبلغ الجديد</label>
+                    <input type="number" id="editAmount" step="0.01" required>
+                </div>
+                <div class="modal-buttons">
+                    <button type="submit" class="btn btn-success" style="flex: 1;" id="saveEditBtn">💾 حفظ التعديل</button>
+                    <button type="button" class="btn btn-cancel" onclick="closeEditModal()" style="flex: 1;">❌ إلغاء</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Firebase SDK -->
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+        import { getDatabase, ref, push, set, onValue, remove, update } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js';
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyBAjmcmTqWb3LMlWsxloqmLD6vlxhYM7Lo",
+            authDomain: "kanten-43e1c.firebaseapp.com",
+            projectId: "kanten-43e1c",
+            storageBucket: "kanten-43e1c.firebasestorage.app",
+            messagingSenderId: "1094339440320",
+            appId: "1:1094339440320:web:ce90eaa77edc1db1670725",
+            measurementId: "G-CB85FHY3FY"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const database = getDatabase(app);
+        const transactionsRef = ref(database, 'transactions');
+
         let transactions = [];
-        
-        // Load data
-        function loadData() {
-            const saved = localStorage.getItem('transactions');
-            if (saved) {
-                transactions = JSON.parse(saved);
-            }
-        }
-        
-        // Save data
-        function saveData() {
-            localStorage.setItem('transactions', JSON.stringify(transactions));
-        }
-        
+        let editingKey = null;
+
+        // Listen to real-time updates
+        onValue(transactionsRef, (snapshot) => {
+            transactions = [];
+            snapshot.forEach((childSnapshot) => {
+                transactions.push({
+                    key: childSnapshot.key,
+                    ...childSnapshot.val()
+                });
+            });
+            updateDisplay();
+        });
+
         // Add purchase
-        function addPurchase(e) {
+        window.addPurchase = async function(e) {
             e.preventDefault();
+            
+            const btn = document.getElementById('purchaseBtn');
+            btn.disabled = true;
             
             const amount = parseFloat(document.getElementById('purchaseAmount').value);
             
-            transactions.push({
-                id: Date.now(),
-                type: 'purchase',
-                amount: amount,
-                date: new Date().toISOString()
-            });
+            try {
+                await push(transactionsRef, {
+                    type: 'purchase',
+                    amount: amount,
+                    date: new Date().toISOString()
+                });
+                
+                e.target.reset();
+                alert('تم تسجيل الشراء بنجاح! ✅');
+            } catch (error) {
+                console.error('Error:', error);
+                alert('حدث خطأ في التسجيل! ❌');
+            }
             
-            saveData();
-            updateDisplay();
-            
-            e.target.reset();
-            alert('تم تسجيل الشراء بنجاح! ✅');
-        }
-        
+            btn.disabled = false;
+        };
+
         // Add sale
-        function addSale(e) {
+        window.addSale = async function(e) {
             e.preventDefault();
+            
+            const btn = document.getElementById('saleBtn');
+            btn.disabled = true;
             
             const amount = parseFloat(document.getElementById('saleAmount').value);
             
-            transactions.push({
-                id: Date.now(),
-                type: 'sale',
-                amount: amount,
-                date: new Date().toISOString()
-            });
+            try {
+                await push(transactionsRef, {
+                    type: 'sale',
+                    amount: amount,
+                    date: new Date().toISOString()
+                });
+                
+                e.target.reset();
+                alert('تم تسجيل البيع بنجاح! ✅');
+            } catch (error) {
+                console.error('Error:', error);
+                alert('حدث خطأ في التسجيل! ❌');
+            }
             
-            saveData();
-            updateDisplay();
+            btn.disabled = false;
+        };
+
+        // Open edit modal
+        window.openEditModal = function(key) {
+            const transaction = transactions.find(t => t.key === key);
+            if (!transaction) return;
             
-            e.target.reset();
-            alert('تم تسجيل البيع بنجاح! ✅');
-        }
-        
+            editingKey = key;
+            document.getElementById('editType').value = transaction.type === 'purchase' ? '📦 شراء' : '💰 بيع';
+            document.getElementById('editAmount').value = transaction.amount;
+            document.getElementById('editModal').classList.add('active');
+        };
+
+        // Close edit modal
+        window.closeEditModal = function() {
+            editingKey = null;
+            document.getElementById('editModal').classList.remove('active');
+        };
+
+        // Save edit
+        window.saveEdit = async function(e) {
+            e.preventDefault();
+            
+            const btn = document.getElementById('saveEditBtn');
+            btn.disabled = true;
+            
+            const newAmount = parseFloat(document.getElementById('editAmount').value);
+            
+            try {
+                const transactionRef = ref(database, `transactions/${editingKey}`);
+                await update(transactionRef, {
+                    amount: newAmount
+                });
+                
+                closeEditModal();
+                alert('تم تعديل العملية بنجاح! ✅');
+            } catch (error) {
+                console.error('Error:', error);
+                alert('حدث خطأ في التعديل! ❌');
+            }
+            
+            btn.disabled = false;
+        };
+
+        // Delete transaction
+        window.deleteTransaction = async function(key) {
+            if (confirm('هل أنت متأكد من حذف هذه العملية؟')) {
+                try {
+                    const transactionRef = ref(database, `transactions/${key}`);
+                    await remove(transactionRef);
+                    alert('تم حذف العملية بنجاح! ✅');
+                } catch (error) {
+                    console.error('Error:', error);
+                    alert('حدث خطأ في الحذف! ❌');
+                }
+            }
+        };
+
         // Update display
         function updateDisplay() {
             const totalPurchases = transactions
@@ -311,7 +558,7 @@
             
             displayTransactions();
         }
-        
+
         // Display transactions
         function displayTransactions() {
             const list = document.getElementById('transactionsList');
@@ -321,31 +568,39 @@
                 return;
             }
             
-            list.innerHTML = transactions
-                .slice(-10)
-                .reverse()
-                .map(t => {
-                    const date = new Date(t.date);
-                    const dateStr = date.toLocaleDateString('ar-EG') + ' ' + date.toLocaleTimeString('ar-EG', {hour: '2-digit', minute: '2-digit'});
-                    const typeText = t.type === 'purchase' ? '📦 شراء' : '💰 بيع';
-                    const typeClass = t.type === 'purchase' ? 'purchase' : 'sale';
-                    const sign = t.type === 'purchase' ? '-' : '+';
-                    
-                    return `
-                        <div class="transaction-item">
-                            <div>
-                                <div class="transaction-type ${typeClass}">${typeText}</div>
-                                <div class="transaction-date">${dateStr}</div>
-                            </div>
+            const sortedTransactions = [...transactions].sort((a, b) => 
+                new Date(b.date) - new Date(a.date)
+            ).slice(0, 10);
+            
+            list.innerHTML = sortedTransactions.map(t => {
+                const date = new Date(t.date);
+                const dateStr = date.toLocaleDateString('ar-EG') + ' ' + date.toLocaleTimeString('ar-EG', {hour: '2-digit', minute: '2-digit'});
+                const typeText = t.type === 'purchase' ? '📦 شراء' : '💰 بيع';
+                const typeClass = t.type === 'purchase' ? 'purchase' : 'sale';
+                const sign = t.type === 'purchase' ? '-' : '+';
+                
+                return `
+                    <div class="transaction-item">
+                        <div class="transaction-info">
+                            <div class="transaction-type ${typeClass}">${typeText}</div>
+                            <div class="transaction-date">${dateStr}</div>
                             <div class="transaction-amount ${typeClass}">${sign}${t.amount.toFixed(2)} جنيه</div>
                         </div>
-                    `;
-                }).join('');
+                        <div class="transaction-actions">
+                            <button class="btn btn-small btn-edit" onclick="openEditModal('${t.key}')">✏️ تعديل</button>
+                            <button class="btn btn-small btn-delete" onclick="deleteTransaction('${t.key}')">🗑️ حذف</button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
         }
-        
-        // Initialize
-        loadData();
-        updateDisplay();
+
+        // Close modal when clicking outside
+        document.getElementById('editModal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeEditModal();
+            }
+        });
     </script>
 </body>
 </html>
